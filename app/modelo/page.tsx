@@ -4,12 +4,12 @@ import { modeloDados, type Tabela } from "@/lib/queries";
 export const dynamic = "force-dynamic";
 
 const CHAVES: { tabela: string; chave: string; uso: string }[] = [
-  { tabela: "colibri_matuto.lojas", chave: "id (loja_id)", uso: "Identificador da loja no Colibri. Usar sempre este campo; loja_numero se repete em cadastros antigos (\"Ant\")." },
-  { tabela: "colibri_matuto.<relatórios>", chave: "loja_id + data", uso: "Tabelas de relatório (faturamento, vendas, turnos…) guardam a linha original em JSON (coluna linha) com loja_id e data de referência." },
-  { tabela: "rh_matuto.coligadas_rm", chave: "codcoligada", uso: "Empresa/CNPJ no TOTVS RM. Toda a folha é por coligada (filial sempre 1)." },
-  { tabela: "rh_matuto.funcionarios", chave: "codcoligada + chapa", uso: "Matrícula do funcionário. A chapa só é única dentro da coligada." },
-  { tabela: "rh_matuto.folha_resumo / folha_eventos", chave: "codcoligada + chapa + anocomp + mescomp + nroperiodo", uso: "Folha por competência e período de pagamento." },
-  { tabela: "colibri_matuto.coligada_loja", chave: "codcoligada + vigente_de", uso: "Ponte Colibri × RM: várias coligadas podem apontar para uma loja; cada coligada aponta para uma única loja por período." },
+  { tabela: "colibri_matuto.lojas", chave: "id (loja_id)", uso: "Identificador da loja no Colibri. O número da loja se repete em cadastros antigos (\"Ant\"): nunca ligar só pelo número." },
+  { tabela: "colibri_matuto.relatorio_linhas", chave: "relatorio + inicio + fim + linha", uso: "Todos os relatórios do Colibri em JSON (coluna dados). A loja vem como texto (\"N - nome\", \"N-nome\" ou \"nome\") e é traduzida para loja_id por dashboard.vw_loja_chaves; a data é o início do período (inicio)." },
+  { tabela: "rh_matuto.filiais", chave: "CODCOLIGADA + CODFILIAL (no JSON)", uso: "Empresas/CNPJ do RM. A folha é toda na filial 1; a ligação com a loja é por CODCOLIGADA." },
+  { tabela: "rh_matuto.funcionarios", chave: "CODCOLIGADA + CHAPA (no JSON)", uso: "Matrícula. A chapa só é única dentro da coligada. A PK física (linha) é posicional, não usar para relacionar." },
+  { tabela: "rh_matuto.folha_resumo / folha", chave: "ano + mes + CODCOLIGADA + CHAPA + NROPERIODO", uso: "Folha por competência e período de pagamento (ano/mes em colunas, demais campos no JSON)." },
+  { tabela: "dashboard.coligada_loja", chave: "codcoligada + vigente_de", uso: "Ponte Colibri × RM: várias coligadas podem apontar para uma loja; cada coligada aponta para uma única loja por período." },
 ];
 
 function Grupo({ titulo, itens }: { titulo: string; itens: Tabela[] }) {
@@ -54,6 +54,7 @@ export default async function Page() {
   const tabelas = await modeloDados();
   const colibri = tabelas.filter((t) => t.schema === "colibri_matuto");
   const rm = tabelas.filter((t) => t.schema === "rh_matuto");
+  const dash = tabelas.filter((t) => t.schema === "dashboard");
 
   return (
     <>
@@ -90,13 +91,14 @@ export default async function Page() {
           </table>
         </div>
         <p className="muted small">
-          Fluxo: venda (Colibri, por <code>loja_id</code>) → <code>coligada_loja</code> (vigência) → folha (RM, por{" "}
+          Fluxo: venda (Colibri, texto da loja → <code>vw_loja_chaves</code> → <code>loja_id</code>) → <code>coligada_loja</code> (vigência) → folha (RM, por{" "}
           <code>codcoligada</code> e competência).
         </p>
       </section>
 
       <Grupo titulo="Colibri (colibri_matuto)" itens={colibri} />
       <Grupo titulo="TOTVS RM (rh_matuto)" itens={rm} />
+      <Grupo titulo="Dashboard (dashboard) – ligação e views de análise" itens={dash} />
     </>
   );
 }

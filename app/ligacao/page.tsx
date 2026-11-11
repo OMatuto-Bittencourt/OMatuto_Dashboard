@@ -13,8 +13,8 @@ export default async function Page() {
     <>
       <h1>Ligação Colibri × RM</h1>
       <p className="sub">
-        Chave de ligação: <code>colibri_matuto.lojas.id</code> (loja_id) ↔ <code>rh_matuto.coligadas_rm.codcoligada</code>,
-        gravada em <code>colibri_matuto.coligada_loja</code> com vigência. Nunca ligar por <code>loja_numero</code> (há
+        Chave de ligação: <code>colibri_matuto.lojas.id</code> (loja_id) ↔ <code>CODCOLIGADA</code> do RM, gravada em{" "}
+        <code>dashboard.coligada_loja</code> com vigência. Nunca ligar por <code>loja_numero</code> (há
         números duplicados em cadastros antigos).
       </p>
 
@@ -103,7 +103,10 @@ export default async function Page() {
                   </td>
                   <td className="num">{l.codcoligada}</td>
                   <td>{l.coligada_nome ?? "–"}</td>
-                  <td style={{ whiteSpace: "nowrap" }}>{fmtCnpj(l.cnpj)}</td>
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    {fmtCnpj(l.cnpj)}
+                    {l.cidade_filial1 && <div className="muted small">{l.cidade_filial1}</div>}
+                  </td>
                   <td style={{ whiteSpace: "nowrap" }}>
                     {fmtData(l.vigente_de)} → {l.vigente_ate ? fmtData(l.vigente_ate) : "atual"}
                   </td>
@@ -143,7 +146,7 @@ export default async function Page() {
           </table>
         </div>
         <p className="muted small">
-          Tabela <code>rh_matuto.coligada_classificacao</code>: coligadas aqui não aparecem como pendência.
+          Tabela <code>dashboard.coligada_classificacao</code>: coligadas aqui não aparecem como pendência.
         </p>
       </section>
     </>

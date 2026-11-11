@@ -97,6 +97,7 @@ h2 { font-size: 16px; margin: 0 0 12px; }
 
 .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
 .grid { display: grid; gap: 16px; }
+.grid > * { min-width: 0; }
 .kpis { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); margin-bottom: 16px; }
 .two { grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); margin-bottom: 16px; }
 @media (max-width: 520px) { .two { grid-template-columns: 1fr; } }

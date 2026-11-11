@@ -1,6 +1,8 @@
 import "server-only";
 import { query } from "./db";
 
+/* Todas as consultas leem o schema `dashboard` (views sobre colibri_matuto e rh_matuto). */
+
 export type LojaMes = {
   loja_id: string;
   loja_numero: number;
@@ -18,6 +20,14 @@ export type LojaMes = {
   coligadas: number[] | null;
 };
 
+export type Cobertura = {
+  mes: string;
+  dias_sincronizados: number;
+  dias_esperados: number;
+  completo: boolean;
+  mes_fechado: boolean;
+};
+
 export type SerieMes = {
   mes: string;
   faturamento: number;
@@ -29,40 +39,36 @@ export type SerieMes = {
 
 export type Dia = { data: string; faturamento: number; pessoas: number };
 
-/** Meses (YYYY-MM) com faturamento no Colibri, mais recente primeiro. */
+/** Meses (YYYY-MM) com dados no Colibri e/ou folha no RM, mais recente primeiro. */
 export async function meses(): Promise<string[]> {
   const rows = await query<{ mes: string }>(`
     select to_char(competencia, 'YYYY-MM') as mes
-    from colibri_matuto.vw_fat_mensal_loja
+    from dashboard.vw_loja_fat_folha_mensal
     group by competencia
-    having sum(faturamento) > 0
     order by competencia desc`);
   return rows.map((r) => r.mes);
 }
 
-/** Faturamento x folha por loja em um mes (YYYY-MM). */
+export async function cobertura(): Promise<Cobertura[]> {
+  return query<Cobertura>(`
+    select to_char(competencia, 'YYYY-MM') as mes, dias_sincronizados::int, dias_esperados::int, completo, mes_fechado
+    from dashboard.vw_cobertura_colibri order by competencia`);
+}
+
 export async function lojasDoMes(mes: string): Promise<LojaMes[]> {
   return query<LojaMes>(
     `
-    select v.loja_id::text, v.loja_numero, v.loja_nome, v.rede, v.cidade,
-           v.faturamento::float8, v.pessoas::float8, v.dias_com_venda::int,
-           to_char(u.ultima_venda, 'YYYY-MM-DD') as ultima_venda,
-           v.headcount_pago::int, v.salario_pago::float8, v.fgts_estimado::float8,
-           v.custo_folha::float8, v.coligadas
-    from colibri_matuto.vw_loja_fat_folha_mensal v
-    left join (
-      select loja_id, max(data) as ultima_venda
-      from colibri_matuto.fat_diario_multi_loja
-      where (linha->>'faturamento')::numeric > 0
-      group by loja_id
-    ) u on u.loja_id = v.loja_id
-    where v.competencia = to_date($1, 'YYYY-MM')
-    order by v.faturamento desc nulls last, v.loja_numero`,
+    select loja_id, loja_numero, loja_nome, rede, cidade,
+           faturamento::float8, pessoas::float8, dias_com_venda::int,
+           to_char(ultima_venda, 'YYYY-MM-DD') as ultima_venda,
+           headcount_pago::int, salario_pago::float8, fgts_estimado::float8, custo_folha::float8, coligadas
+    from dashboard.vw_loja_fat_folha_mensal
+    where competencia = to_date($1, 'YYYY-MM')
+    order by faturamento desc nulls last, loja_numero`,
     [mes],
   );
 }
 
-/** Serie mensal da rede. Folha considera apenas lojas com faturamento e coligada ligada no mes. */
 export async function serieRede(): Promise<SerieMes[]> {
   return query<SerieMes>(`
     select to_char(competencia, 'YYYY-MM') as mes,
@@ -71,35 +77,90 @@ export async function serieRede(): Promise<SerieMes[]> {
            coalesce(sum(faturamento) filter (where custo_folha is not null and faturamento > 0), 0)::float8 as fat_com_folha,
            coalesce(sum(custo_folha) filter (where faturamento > 0), 0)::float8 as custo_folha,
            coalesce(sum(headcount_pago) filter (where faturamento > 0), 0)::int as headcount
-    from colibri_matuto.vw_loja_fat_folha_mensal
+    from dashboard.vw_loja_fat_folha_mensal
     group by competencia
     having sum(faturamento) > 0
     order by competencia`);
 }
 
-/** Faturamento diario da rede no mes. */
-export async function diarioDoMes(mes: string): Promise<Dia[]> {
+export async function diarioDoMes(mes: string, lojaId?: string): Promise<Dia[]> {
   return query<Dia>(
     `
     select to_char(data, 'YYYY-MM-DD') as data,
-           coalesce(sum((linha->>'faturamento')::numeric), 0)::float8 as faturamento,
-           coalesce(sum((linha->>'pessoas')::numeric), 0)::float8 as pessoas
-    from colibri_matuto.fat_diario_multi_loja
-    where data >= to_date($1, 'YYYY-MM') and data < to_date($1, 'YYYY-MM') + interval '1 month'
-    group by data
-    order by data`,
-    [mes],
+           coalesce(sum(faturamento), 0)::float8 as faturamento,
+           coalesce(sum(pessoas), 0)::float8 as pessoas
+    from dashboard.vw_fat_diario_loja
+    where loja_id is not null
+      and data >= to_date($1, 'YYYY-MM') and data < to_date($1, 'YYYY-MM') + interval '1 month'
+      and ($2::text is null or loja_id = $2)
+    group by data order by data`,
+    [mes, lojaId ?? null],
   );
 }
 
-export type Atualizacao = { colibri_ultima_data: string | null; colibri_sync: string | null; rm_ultima_competencia: string | null };
+export type Atualizacao = { colibri_ultima_data: string | null; colibri_sync: string | null; rm_sync: string | null; rm_ultima_competencia: string | null };
 
 export async function atualizacao(): Promise<Atualizacao> {
   const [r] = await query<Atualizacao>(`
-    select (select to_char(max(data), 'YYYY-MM-DD') from colibri_matuto.fat_diario_multi_loja) as colibri_ultima_data,
-           (select to_char(max(sincronizado_em) at time zone 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI') from colibri_matuto.fat_diario_multi_loja) as colibri_sync,
-           (select to_char(max(make_date(anocomp, mescomp, 1)), 'YYYY-MM') from rh_matuto.folha_resumo) as rm_ultima_competencia`);
+    select (select to_char(max(inicio), 'YYYY-MM-DD') from colibri_matuto.periodos where relatorio = 'faturamento_diario_loja' and ultimo_sucesso is not null) as colibri_ultima_data,
+           (select to_char(max(ultimo_sucesso) at time zone 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI') from colibri_matuto.periodos) as colibri_sync,
+           (select to_char(max(verificado_em) at time zone 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI') from rh_matuto.sync_estado) as rm_sync,
+           (select to_char(max(make_date(ano, mes, 1)), 'YYYY-MM') from rh_matuto.folha_resumo) as rm_ultima_competencia`);
   return r;
+}
+
+/* ---------- Vendas ---------- */
+
+export type Fatia = { rotulo: string; valor: number; pessoas: number | null };
+
+export async function lojasComVenda(): Promise<{ loja_id: string; nome: string }[]> {
+  return query(`
+    select l.loja_id, l.nome from dashboard.vw_lojas l
+    where exists (select 1 from dashboard.vw_fat_diario_loja f where f.loja_id = l.loja_id and f.faturamento > 0)
+    order by l.numero`);
+}
+
+const filtroPeriodo = `data >= to_date($1, 'YYYY-MM') and data < to_date($1, 'YYYY-MM') + interval '1 month' and ($2::text is null or loja_id = $2)`;
+
+export async function modoVenda(mes: string, lojaId?: string): Promise<Fatia[]> {
+  return query<Fatia>(
+    `select modo_venda as rotulo, coalesce(sum(faturamento), 0)::float8 as valor, coalesce(sum(pessoas), 0)::float8 as pessoas
+     from dashboard.vw_modo_venda_diario where loja_id is not null and ${filtroPeriodo}
+     group by 1 having sum(faturamento) > 0 order by 2 desc`,
+    [mes, lojaId ?? null],
+  );
+}
+
+export async function meioPagamento(mes: string, lojaId?: string): Promise<Fatia[]> {
+  return query<Fatia>(
+    `select categoria as rotulo, coalesce(sum(valor), 0)::float8 as valor, null::float8 as pessoas
+     from dashboard.vw_meio_pagamento_diario where loja_id is not null and ${filtroPeriodo}
+     group by 1 having sum(valor) > 0 order by 2 desc`,
+    [mes, lojaId ?? null],
+  );
+}
+
+export async function faturamentoPorHora(mes: string, lojaId?: string): Promise<{ hora: number; faturamento: number; pessoas: number; dias: number }[]> {
+  return query(
+    `select hora, coalesce(sum(faturamento), 0)::float8 as faturamento, coalesce(sum(pessoas), 0)::float8 as pessoas,
+            count(distinct data)::int as dias
+     from dashboard.vw_fat_hora where loja_id is not null and ${filtroPeriodo}
+     group by hora order by hora`,
+    [mes, lojaId ?? null],
+  );
+}
+
+export type EntregaLoja = { loja_nome: string; entregas: number; total_pedido: number; taxa_entrega: number };
+
+export async function entregasPorLoja(mes: string, lojaId?: string): Promise<EntregaLoja[]> {
+  return query<EntregaLoja>(
+    `select l.nome as loja_nome, coalesce(sum(e.entregas), 0)::float8 as entregas,
+            coalesce(sum(e.total_pedido), 0)::float8 as total_pedido, coalesce(sum(e.taxa_entrega), 0)::float8 as taxa_entrega
+     from dashboard.vw_entregas_diario e join dashboard.vw_lojas l using (loja_id)
+     where ${filtroPeriodo.replace(/loja_id/g, "e.loja_id").replace(/\bdata\b/g, "e.data")}
+     group by l.nome, l.numero having sum(e.entregas) > 0 order by total_pedido desc`,
+    [mes, lojaId ?? null],
+  );
 }
 
 /* ---------- Ligacao Colibri x RM ---------- */
@@ -112,6 +173,7 @@ export type Ligacao = {
   codcoligada: number;
   coligada_nome: string | null;
   cnpj: string | null;
+  cidade_filial1: string | null;
   vigente_de: string;
   vigente_ate: string | null;
   observacao: string | null;
@@ -120,14 +182,14 @@ export type Ligacao = {
 
 export async function ligacoes(): Promise<Ligacao[]> {
   return query<Ligacao>(`
-    select l.id::text as loja_id, l.numero as loja_numero, l.nome as loja_nome, l.nome_rede_pai as rede,
-           cl.codcoligada, c.nome as coligada_nome, c.cnpj,
+    select l.loja_id, l.numero as loja_numero, l.nome as loja_nome, l.rede,
+           cl.codcoligada, c.nome as coligada_nome, c.cnpj, c.cidade_filial1,
            to_char(cl.vigente_de, 'YYYY-MM-DD') as vigente_de, to_char(cl.vigente_ate, 'YYYY-MM-DD') as vigente_ate,
-           cl.observacao,
-           (select count(*) from rh_matuto.funcionarios f where f.codcoligada = cl.codcoligada and f.codsituacao <> 'D')::int as ativos
-    from colibri_matuto.coligada_loja cl
-    join colibri_matuto.lojas l on l.id = cl.loja_id
-    left join rh_matuto.coligadas_rm c on c.codcoligada = cl.codcoligada
+           cl.observacao, coalesce(a.ativos, 0)::int as ativos
+    from dashboard.coligada_loja cl
+    join dashboard.vw_lojas l on l.loja_id = cl.loja_id
+    left join dashboard.vw_coligadas c on c.codcoligada = cl.codcoligada
+    left join dashboard.vw_ativos_coligada a on a.codcoligada = cl.codcoligada
     order by l.numero, cl.codcoligada`);
 }
 
@@ -145,9 +207,9 @@ export type Pendencia = {
 
 export async function pendencias(): Promise<Pendencia[]> {
   return query<Pendencia>(`
-    select tipo, loja_id::text, loja_numero, loja_nome, codcoligada, coligada_nome,
+    select tipo, loja_id, loja_numero, loja_nome, codcoligada, coligada_nome,
            fat_60d::float8, to_char(ult_venda, 'YYYY-MM-DD') as ult_venda, funcionarios_ativos::int
-    from colibri_matuto.vw_pendencias_ligacao
+    from dashboard.vw_pendencias_ligacao
     order by tipo desc, fat_60d desc nulls last, funcionarios_ativos desc nulls last`);
 }
 
@@ -156,8 +218,8 @@ export type Classificacao = { codcoligada: number; nome: string | null; tipo: st
 export async function classificacoes(): Promise<Classificacao[]> {
   return query<Classificacao>(`
     select cc.codcoligada, c.nome, cc.tipo, cc.observacao
-    from rh_matuto.coligada_classificacao cc
-    left join rh_matuto.coligadas_rm c using (codcoligada)
+    from dashboard.coligada_classificacao cc
+    left join dashboard.vw_coligadas c using (codcoligada)
     order by cc.tipo, cc.codcoligada`);
 }
 
@@ -184,7 +246,7 @@ export async function modeloDados(): Promise<Tabela[]> {
       from pg_class c
       join pg_namespace n on n.oid = c.relnamespace
       left join pg_stat_user_tables s on s.relid = c.oid
-      where n.nspname in ('colibri_matuto', 'rh_matuto') and c.relkind in ('r', 'v')
+      where n.nspname in ('colibri_matuto', 'rh_matuto', 'dashboard') and c.relkind in ('r', 'v')
     ),
     pk as (
       select con.conrelid as oid,
