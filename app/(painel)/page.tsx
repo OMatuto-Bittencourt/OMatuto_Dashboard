@@ -32,7 +32,7 @@ function rotuloMes(m: string, c?: Cobertura): string {
   return fmtMes(m);
 }
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ mes?: string }> }) {
+export default async function Page({ searchParams }: { searchParams: Promise<{ mes?: string; senha?: string }> }) {
   const sp = await searchParams;
   const [lista, serie, upd, cob] = await Promise.all([meses(), serieRede(), atualizacao(), cobertura()]);
   if (lista.length === 0) return <p>Nenhum dado encontrado.</p>;
@@ -67,6 +67,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
         {fmtData(upd.colibri_ultima_data)} (sync {upd.colibri_sync ?? "–"}) · folha até{" "}
         {upd.rm_ultima_competencia ? fmtMes(upd.rm_ultima_competencia) : "–"} (sync {upd.rm_sync ?? "–"}).
       </p>
+
+      {sp.senha === "alterada" && <div className="note ok-note">Senha alterada com sucesso.</div>}
 
       <div className="toolbar">
         <MonthSelect meses={lista} atual={mes} rotulos={rotulos} />

@@ -1,25 +1,19 @@
 import type { Metadata } from "next";
-import Nav from "@/components/Nav";
+import { Questrial } from "next/font/google";
 import "./globals.css";
 
+const questrial = Questrial({ weight: "400", subsets: ["latin"], display: "swap", variable: "--font-marca" });
+
 export const metadata: Metadata = {
-  title: "O Matuto · Dashboard",
+  title: "MTO · Painel da rede",
   description: "Faturamento (Colibri) e folha (TOTVS RM) por loja",
   robots: { index: false, follow: false },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR">
-      <body>
-        <header className="topbar">
-          <div className="brand">
-            O Matuto <span>· Dashboard</span>
-          </div>
-          <Nav />
-        </header>
-        <main>{children}</main>
-      </body>
+    <html lang="pt-BR" className={questrial.variable}>
+      <body>{children}</body>
     </html>
   );
 }

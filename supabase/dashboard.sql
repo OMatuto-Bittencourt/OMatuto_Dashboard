@@ -204,3 +204,25 @@ select r.inicio as data, k.loja_id, r.dados->>'entregador' as entregador,
        (r.dados->>'totalTxEntrega')::numeric as taxa_entrega
 from colibri_matuto.relatorio_linhas r left join dashboard.vw_loja_chaves k on k.chave = r.dados->>'lojaNome'
 where r.relatorio = 'entregas';
+
+-- ---------------------------------------------------------------------------
+-- Usuarios do dashboard (login proprio). Senha em scrypt; nunca em texto.
+-- O usuario master inicial foi criado direto no banco com trocar_senha = true.
+-- ---------------------------------------------------------------------------
+create table if not exists dashboard.usuarios (
+  id            uuid primary key default gen_random_uuid(),
+  email         text not null,
+  nome          text,
+  senha_hash    text not null,
+  perfil        text not null default 'usuario' check (perfil in ('master', 'usuario')),
+  trocar_senha  boolean not null default true,
+  ativo         boolean not null default true,
+  versao_senha  int not null default 1,
+  ultimo_login  timestamptz,
+  criado_em     timestamptz not null default now(),
+  atualizado_em timestamptz not null default now(),
+  constraint usuarios_email_minusculo check (email = lower(email))
+);
+create unique index if not exists usuarios_email_uk on dashboard.usuarios (email);
+alter table dashboard.usuarios enable row level security;
+comment on table dashboard.usuarios is 'Usuarios do dashboard. Senha em scrypt (formato scrypt$N$r$p$salt$hash); nunca em texto. versao_senha invalida sessoes antigas.';

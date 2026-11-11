@@ -40,7 +40,7 @@ RAT/FAP, terceiros, benefícios e provisões, porque a tabela `rh_matuto.encargo
 | Variável | Obrigatória | Descrição |
 |---|---|---|
 | `DATABASE_URL` | sim | Connection string do Supabase (Transaction pooler, porta 6543) |
-| `DASHBOARD_USER` / `DASHBOARD_PASSWORD` | sim | Login do dashboard (HTTP Basic Auth). Sem elas o app responde 503 para tudo |
+| `SESSION_SECRET` | não | Chave (32+ caracteres) que assina o cookie de sessão. Se ausente, é derivada da `DATABASE_URL`; trocar invalida todas as sessões |
 | `DATABASE_CA_CERT` | não | Certificado CA do Supabase (PEM) para validar o TLS do banco |
 | `DATABASE_SSL=disable` | não | Só para desenvolvimento com Postgres local |
 
@@ -59,6 +59,15 @@ alter role dashboard_ro bypassrls;  -- as tabelas têm RLS ligado sem políticas
 
 No pooler, o usuário fica `dashboard_ro.<project-ref>`. Se o `bypassrls` for recusado, crie políticas
 `for select to dashboard_ro using (true)` nas tabelas lidas, ou use temporariamente a connection string padrão.
+
+## Acesso
+
+- Login próprio em `/login` (e-mail e senha), usuários em `dashboard.usuarios`. Senhas guardadas só como hash scrypt.
+- Sessão em cookie assinado (`httpOnly`, 8 horas). Trocar a senha encerra as sessões antigas.
+- No primeiro acesso, o usuário é obrigado a criar uma senha pessoal (`/trocar-senha`).
+- 5 tentativas erradas bloqueiam o e-mail/IP por 15 minutos.
+- Novo usuário (por enquanto, direto no banco): gere o hash com a mesma função de `lib/senha.ts` e insira em
+  `dashboard.usuarios` com `trocar_senha = true`.
 
 ## Deploy (Easypanel)
 
