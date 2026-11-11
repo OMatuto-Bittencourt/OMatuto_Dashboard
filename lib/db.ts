@@ -30,6 +30,12 @@ function pool(): Pool {
   return globalThis.__pgPool;
 }
 
+/** Escrita: usar apenas para a tabela dashboard.usuarios (login e troca de senha). */
+export async function executar<T extends QueryResultRow>(sql: string, params: unknown[] = []): Promise<T[]> {
+  const res = await pool().query<T>(sql, params);
+  return res.rows;
+}
+
 /** Executa uma consulta dentro de uma transacao somente-leitura. */
 export async function query<T extends QueryResultRow>(sql: string, params: unknown[] = []): Promise<T[]> {
   const client = await pool().connect();
