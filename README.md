@@ -8,24 +8,32 @@ Dashboard interno que cruza o **faturamento do PDV Colibri** com a **folha do TO
 | Rota | Conteúdo |
 |---|---|
 | `/` | Visão geral: KPIs do mês, faturamento mensal e diário da rede, tabela por loja (faturamento, ticket, folha parcial, folha/faturamento, status) |
-| `/ligacao` | Ligação Colibri × RM: pendências, ligações vigentes (`coligada_loja`) e coligadas classificadas fora de loja |
+| `/vendas` | Vendas por mês e loja: faturamento diário, faturamento médio por hora, modo de venda, meio de pagamento e entregas |
+| `/ligacao` | Ligação Colibri × RM: pendências, ligações vigentes e coligadas classificadas fora de loja |
 | `/modelo` | Modelo de dados: tabelas, views, PKs e FKs lidas do catálogo do Postgres |
+
+## Banco (Supabase `omatuto-dados`)
+
+- `colibri_matuto` e `rh_matuto`: carregados pelo n8n, dados brutos em JSON (`dados`). Não alterar.
+- `dashboard`: ligação loja × coligada e views tipadas usadas pelo app. Não é tocado pelos syncs.
 
 ## Chave de relacionamento
 
 ```
-colibri_matuto.lojas.id (loja_id)
-        └── colibri_matuto.coligada_loja (codcoligada, vigente_de, vigente_ate)
-                └── rh_matuto.coligadas_rm.codcoligada → folha_resumo / funcionarios
+relatorio_linhas.dados (texto da loja) ──> dashboard.vw_loja_chaves ──> colibri_matuto.lojas.id (loja_id)
+                                                                          │
+                                         dashboard.coligada_loja (codcoligada, vigente_de, vigente_ate)
+                                                                          │
+                                  rh_matuto.folha_resumo / funcionarios / filiais (dados->>'CODCOLIGADA')
 ```
 
-Nunca ligar por `loja_numero`: há números duplicados em cadastros antigos ("Ant").
-
-As views usadas pelo app (`vw_fat_mensal_loja`, `vw_loja_fat_folha_mensal`, `vw_pendencias_ligacao`,
-`rh_matuto.vw_folha_mensal_coligada`) estão no Supabase.
+- Nunca ligar só pelo número da loja: há números duplicados em cadastros antigos ("Ant").
+- As PKs físicas das tabelas do RM (`linha`) são posicionais; para relacionar use `CODCOLIGADA` + `CHAPA`.
+- Folha × faturamento só é exibido para meses fechados com todos os dias de venda sincronizados
+  (`dashboard.vw_cobertura_colibri`).
 
 **Limitação atual:** o custo de folha é parcial (salário pago + FGTS estimado de 8%). Não inclui INSS patronal,
-RAT/FAP, terceiros, benefícios e provisões, porque a tabela `rh_matuto.encargos` ainda não é carregada.
+RAT/FAP, terceiros, benefícios e provisões, porque a tabela `rh_matuto.encargos` ainda está vazia.
 
 ## Variáveis de ambiente
 
@@ -41,10 +49,11 @@ Todas as consultas rodam em transação `read only`. Mesmo assim, recomenda-se u
 
 ```sql
 create role dashboard_ro login password 'TROQUE_ESTA_SENHA';
-grant usage on schema colibri_matuto, rh_matuto to dashboard_ro;
-grant select on all tables in schema colibri_matuto, rh_matuto to dashboard_ro;
+grant usage on schema colibri_matuto, rh_matuto, dashboard to dashboard_ro;
+grant select on all tables in schema colibri_matuto, rh_matuto, dashboard to dashboard_ro;
 alter default privileges in schema colibri_matuto grant select on tables to dashboard_ro;
 alter default privileges in schema rh_matuto grant select on tables to dashboard_ro;
+alter default privileges in schema dashboard grant select on tables to dashboard_ro;
 alter role dashboard_ro bypassrls;  -- as tabelas têm RLS ligado sem políticas
 ```
 
