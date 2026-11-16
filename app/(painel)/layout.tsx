@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import Nav from "@/components/Nav";
 import { sair } from "@/app/acoes-auth";
-import { exigirUsuario } from "@/lib/auth";
+import { ehAdmin, exigirUsuario } from "@/lib/auth";
 import { SCHEMA_PAINEL } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +23,7 @@ export default async function PainelLayout({ children }: { children: React.React
         <Link href="/" className="brand" aria-label="Início">
           <Image src="/brand/mto.webp" alt="MTO Administração de Franquias" width={94} height={40} priority />
         </Link>
-        <Nav />
+        <Nav admin={ehAdmin(u)} />
         <details className="conta">
           <summary>{u.nome ?? u.email}</summary>
           <div className="conta-menu">

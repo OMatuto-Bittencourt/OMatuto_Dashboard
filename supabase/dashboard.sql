@@ -356,3 +356,25 @@ insert into dashboard.coligada_loja (codcoligada, loja_id, vigente_de, cnpj_loja
  (9, '1573658454708','2012-08-31','16835931000140','16 Chusc DPedro - Nelci: Av. Guilherme Campos 500 loja R-004'),
  (42,'3s-8','2026-07-03','67888275000184','Expressa Sorocaba (3S) - Matusalen: Av. Gisele Constantino 1850 loja 322, Votorantim')
 on conflict do nothing;
+
+-- ---------------------------------------------------------------------------
+-- Perfis e auditoria de contas (tela /admin)
+-- master: cria admins e usuarios | admin: cria usuarios | usuario: so consulta
+-- ---------------------------------------------------------------------------
+alter table dashboard.usuarios drop constraint if exists usuarios_perfil_check;
+alter table dashboard.usuarios add constraint usuarios_perfil_check check (perfil in ('master', 'admin', 'usuario'));
+alter table dashboard.usuarios add column if not exists criado_por uuid references dashboard.usuarios(id);
+create index if not exists usuarios_criado_por_idx on dashboard.usuarios (criado_por);
+
+create table if not exists dashboard.usuarios_eventos (
+  id         bigint generated always as identity primary key,
+  usuario_id uuid not null references dashboard.usuarios(id),
+  ator_id    uuid references dashboard.usuarios(id),
+  acao       text not null check (acao in ('criado', 'desativado', 'reativado', 'senha_redefinida', 'senha_alterada')),
+  detalhes   jsonb,
+  em         timestamptz not null default now()
+);
+create index if not exists usuarios_eventos_usuario_idx on dashboard.usuarios_eventos (usuario_id, em desc);
+create index if not exists usuarios_eventos_ator_idx on dashboard.usuarios_eventos (ator_id);
+alter table dashboard.usuarios_eventos enable row level security;
+comment on table dashboard.usuarios_eventos is 'Auditoria das contas do dashboard. ator_id nulo = criado direto no banco.';
