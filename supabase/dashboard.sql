@@ -1,5 +1,7 @@
 -- Schema `dashboard` do projeto Supabase omatuto-dados (aplicado em 11/11/2026).
 -- Ligacao Colibri x RM e views tipadas sobre colibri_matuto / rh_matuto (dados brutos em JSON carregados pelo n8n).
+-- Desde 16/11/2026 as views de venda tambem somam as lojas migradas para o 3S Checkout (schema "3s_matuto",
+-- que precisa existir antes; ele e criado pelo projeto de extracao do 3S).
 -- Idempotente nas views; as tabelas usam "if not exists".
 
 create extension if not exists btree_gist with schema extensions;
@@ -69,14 +71,48 @@ insert into dashboard.coligada_classificacao (codcoligada, tipo, observacao) val
  (40,'SEM_OPERACAO','Avelino Com. Alimentos - confirmar com DP')
 on conflict do nothing;
 
+-- Ponte 3S Checkout (schema "3s_matuto", carregado pelo n8n) -> loja do painel (loja_id = colibri_matuto.lojas.id).
+-- A loja passa a vir do 3S a partir de vigente_de (primeiro dia de venda no 3S); antes disso, do Colibri.
+-- Loja que so existe no 3S recebe loja_id proprio '3s-<store_id>'. O CNPJ serve so para o match.
+create table if not exists dashboard.loja_3s (
+  store_id    integer primary key,       -- "3s_matuto".lojas.store_id
+  loja_id     text    not null,          -- loja do painel
+  vigente_de  date    not null,          -- primeiro dia de venda no 3S
+  observacao  text
+);
+comment on table dashboard.loja_3s is 'Ligacao 3S (store_id) x loja do painel (loja_id), a partir da data de migracao do Colibri para o 3S.';
+alter table dashboard.loja_3s enable row level security;
+
+insert into dashboard.loja_3s (store_id, loja_id, vigente_de, observacao) values
+ (7, '1492704231666', '2026-11-04', '0001 Expressa Bandeiras = 05 Exp Bandei (nome + CNPJ 16.835.919/0001-35)'),
+ (5, '1492707386251', '2026-10-20', '0007 Expressa Unimart = 11 Exp Unimart (nome + CNPJ 26.014.591/0001-40)'),
+ (6, '1715099280297', '2026-10-28', '0013 Indaiatuba = 19 Exp Indaiatu (nome + CNPJ 54.313.138/0001-70)'),
+ (4, '1744913755446', '2026-08-18', '0014 Expressa Moraes Salles = 23 Exp. M Sales (CNPJ 58.912.006/0001-15)'),
+ (8, '3s-8',          '2026-11-01', '0016 Matuto Sorocaba - loja nova, so no 3S')
+on conflict (store_id) do nothing;
+
 -- ---------------------------------------------------------------------------
 -- Views (security_invoker: respeitam as permissoes de quem consulta)
+-- Lojas migradas para o 3S: as views de venda somam Colibri + 3S (UNION ALL), mesmas colunas.
 -- ---------------------------------------------------------------------------
 
 create or replace view dashboard.vw_lojas with (security_invoker = true) as
 select l.id as loja_id, (l.dados->>'numero')::int as numero, l.dados->>'nome' as nome, l.dados->>'nomeRedePai' as rede,
        l.dados->>'cidade' as cidade, l.dados->>'uf' as uf, l.dados->>'razaoSocial' as razao_social, l.dados->>'status' as status
-from colibri_matuto.lojas l;
+from colibri_matuto.lojas l
+union all
+-- lojas que so existem no 3S
+select m.loja_id, null::int, s.nome || ' (3S)', null::text, null::text, null::text, null::text, 'ATIVA'
+from dashboard.loja_3s m join "3s_matuto".lojas s on s.store_id = m.store_id
+where m.loja_id like '3s-%';
+
+-- Base 3S: vendas diarias (JSON do datalake) ja ligadas a loja do painel, so a partir da migracao
+create or replace view dashboard.vw_3s_diario with (security_invoker = true) as
+select v.data, m.loja_id, s.store_code, s.nome as loja_nome_3s, v.linha
+from "3s_matuto".vendas_diarias v
+join "3s_matuto".lojas s on s.store_code = v.loja_codigo
+join dashboard.loja_3s m on m.store_id = s.store_id
+where v.data >= m.vigente_de;
 
 -- Relatorios do Colibri trazem a loja como texto: "N - nome" (diario), "N-nome" (hora/modo/meio) ou "nome" (entregas/turnos).
 create or replace view dashboard.vw_loja_chaves with (security_invoker = true) as
@@ -90,7 +126,15 @@ select r.inicio as data, k.loja_id, r.dados->>'numeroENomeLoja' as loja_relatori
        (r.dados->>'servico')::numeric as servico, (r.dados->>'pessoas')::numeric as pessoas
 from colibri_matuto.relatorio_linhas r
 left join dashboard.vw_loja_chaves k on k.chave = r.dados->>'numeroENomeLoja'
-where r.relatorio = 'faturamento_diario_loja';
+where r.relatorio = 'faturamento_diario_loja'
+union all
+-- 3S: faturamento = total com desconto + servico; pessoas = pedidos
+select d.data, d.loja_id, '3S ' || d.store_code || ' - ' || d.loja_nome_3s,
+       coalesce("3s_matuto".fn_num(d.linha->>'totalSales'), 0) + coalesce("3s_matuto".fn_num(d.linha->>'tipTotal'), 0),
+       "3s_matuto".fn_num(d.linha->>'totalSales'),
+       coalesce("3s_matuto".fn_num(d.linha->>'tipTotal'), 0),
+       "3s_matuto".fn_num(d.linha->>'orderCount')
+from dashboard.vw_3s_diario d;
 
 create or replace view dashboard.vw_fat_mensal_loja with (security_invoker = true) as
 select loja_id, date_trunc('month', data)::date as competencia,
@@ -175,9 +219,27 @@ create or replace view dashboard.vw_modo_venda_diario with (security_invoker = t
 select r.inicio as data, k.loja_id, r.dados->>'nomeModoVenda' as modo_venda,
        (r.dados->>'faturamento')::numeric as faturamento, (r.dados->>'pessoas')::numeric as pessoas
 from colibri_matuto.relatorio_linhas r left join dashboard.vw_loja_chaves k on k.chave = r.dados->>'lojaNome'
-where r.relatorio = 'faturamento_modo_venda';
+where r.relatorio = 'faturamento_modo_venda'
+union all
+-- 3S: canais de venda -> Balcao / Mesa / Entrega / Totem
+select d.data, d.loja_id, c.modo,
+       "3s_matuto".fn_num(d.linha #>> array['salesByChannel', c.chave, 'totalSales']),
+       "3s_matuto".fn_num(d.linha #>> array['salesByChannel', c.chave, 'orderCount'])
+from dashboard.vw_3s_diario d
+cross join (values ('frontCounter','Balcão'), ('table','Mesa'), ('delivery','Entrega'), ('kiosk','Totem')) as c(chave, modo)
+where d.linha #> array['salesByChannel', c.chave] is not null;
 
+-- 3S: formas de pagamento vem do relatorio SaleChannelByTender (mes ate ontem, por loja), sem quebra por dia.
+-- O valor do mes entra no primeiro dia do periodo (ou na data de migracao). O painel mostra a data de apuracao
+-- (max(periodo_fim) em "3s_matuto".meio_pagamento_mensal); vendas depois dela entram na proxima carga diaria.
 create or replace view dashboard.vw_meio_pagamento_diario with (security_invoker = true) as
+with pg as (
+  select greatest(p.periodo_inicio, m.vigente_de) as data, m.loja_id, trim(p.forma_pagamento) as meio, p.valor
+  from "3s_matuto".meio_pagamento_mensal p
+  join "3s_matuto".lojas s on s.store_code = p.loja_codigo
+  join dashboard.loja_3s m on m.store_id = s.store_id
+  where p.periodo_fim >= m.vigente_de
+)
 select r.inicio as data, k.loja_id, trim(r.dados->>'nomeRecebimento') as meio,
        case
          when upper(r.dados->>'nomeRecebimento') like '%IFOOD%' then 'iFood'
@@ -190,20 +252,49 @@ select r.inicio as data, k.loja_id, trim(r.dados->>'nomeRecebimento') as meio,
        end as categoria,
        (r.dados->>'valorTotal')::numeric as valor
 from colibri_matuto.relatorio_linhas r left join dashboard.vw_loja_chaves k on k.chave = r.dados->>'lojaNome'
-where r.relatorio = 'faturamento_meio_pagamento';
+where r.relatorio = 'faturamento_meio_pagamento'
+union all
+select pg.data, pg.loja_id, pg.meio,
+       case
+         when upper(pg.meio) like '%IFOOD%' or upper(pg.meio) like '%CUPOM PARCEIRO%' then 'iFood'
+         when upper(pg.meio) like '%PIX%' then 'PIX'
+         when upper(pg.meio) like '%DINHEIRO%' then 'Dinheiro'
+         when upper(pg.meio) ~ '(CREDITO|CRÉDITO|AMERICAN|AMEX)' then 'Crédito'
+         when upper(pg.meio) ~ '(DEBITO|DÉBITO)' then 'Débito'
+         when upper(pg.meio) ~ '(VOUCHER|SODEXO|ALELO|TICKET|VR|VALE|VERO|BEN )' then 'Voucher/benefício'
+         else 'Outros'
+       end,
+       pg.valor
+from pg;
 
 create or replace view dashboard.vw_fat_hora with (security_invoker = true) as
 select r.inicio as data, k.loja_id, (r.dados->>'hora')::int as hora,
        (r.dados->>'totalRecebido')::numeric as faturamento, (r.dados->>'numeroDePessoas')::numeric as pessoas
 from colibri_matuto.relatorio_linhas r left join dashboard.vw_loja_chaves k on k.chave = r.dados->>'nome'
-where r.relatorio = 'faturamento_hora_loja';
+where r.relatorio = 'faturamento_hora_loja'
+union all
+-- 3S: a hora vem em UTC -> Brasilia (UTC-3, sem horario de verao desde 2019). A data ja e o dia de negocio.
+select h.data, m.loja_id, ((h.linha->>'hour')::int + 21) % 24,
+       "3s_matuto".fn_num(h.linha->>'totalSales'), "3s_matuto".fn_num(h.linha->>'orderCount')
+from "3s_matuto".vendas_hora h
+join "3s_matuto".lojas s on s.store_code = h.loja_codigo
+join dashboard.loja_3s m on m.store_id = s.store_id
+where h.data >= m.vigente_de;
 
 create or replace view dashboard.vw_entregas_diario with (security_invoker = true) as
 select r.inicio as data, k.loja_id, r.dados->>'entregador' as entregador,
        (r.dados->>'qtdEntregas')::numeric as entregas, (r.dados->>'totalPedido')::numeric as total_pedido,
        (r.dados->>'totalTxEntrega')::numeric as taxa_entrega
 from colibri_matuto.relatorio_linhas r left join dashboard.vw_loja_chaves k on k.chave = r.dados->>'lojaNome'
-where r.relatorio = 'entregas';
+where r.relatorio = 'entregas'
+union all
+-- 3S: canal delivery (taxa de entrega nao disponivel no 3S)
+select d.data, d.loja_id, 'Delivery 3S',
+       "3s_matuto".fn_num(d.linha #>> '{salesByChannel,delivery,orderCount}'),
+       "3s_matuto".fn_num(d.linha #>> '{salesByChannel,delivery,totalSales}'),
+       null::numeric
+from dashboard.vw_3s_diario d
+where d.linha #> '{salesByChannel,delivery}' is not null;
 
 -- ---------------------------------------------------------------------------
 -- Usuarios do dashboard (login proprio). Senha em scrypt; nunca em texto.
