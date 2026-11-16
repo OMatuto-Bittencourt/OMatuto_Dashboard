@@ -183,14 +183,16 @@ export type Ligacao = {
 export async function ligacoes(): Promise<Ligacao[]> {
   return query<Ligacao>(`
     select l.loja_id, l.numero as loja_numero, l.nome as loja_nome, l.rede,
-           cl.codcoligada, c.nome as coligada_nome, c.cnpj, c.cidade_filial1,
+           cl.codcoligada, c.nome as coligada_nome, coalesce(cl.cnpj_loja, c.cnpj) as cnpj,
+           coalesce(nullif(concat_ws(' · ', initcap(e.endereco), e.cidade), ''), c.cidade_filial1) as cidade_filial1,
            to_char(cl.vigente_de, 'YYYY-MM-DD') as vigente_de, to_char(cl.vigente_ate, 'YYYY-MM-DD') as vigente_ate,
            cl.observacao, coalesce(a.ativos, 0)::int as ativos
     from dashboard.coligada_loja cl
     join dashboard.vw_lojas l on l.loja_id = cl.loja_id
     left join dashboard.vw_coligadas c on c.codcoligada = cl.codcoligada
     left join dashboard.vw_ativos_coligada a on a.codcoligada = cl.codcoligada
-    order by l.numero, cl.codcoligada`);
+    left join dashboard.estabelecimentos e on e.cnpj = cl.cnpj_loja
+    order by l.numero nulls last, cl.codcoligada`);
 }
 
 export type Pendencia = {
