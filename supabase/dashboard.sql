@@ -317,3 +317,42 @@ create table if not exists dashboard.usuarios (
 create unique index if not exists usuarios_email_uk on dashboard.usuarios (email);
 alter table dashboard.usuarios enable row level security;
 comment on table dashboard.usuarios is 'Usuarios do dashboard. Senha em scrypt (formato scrypt$N$r$p$salt$hash); nunca em texto. versao_senha invalida sessoes antigas.';
+
+-- ---------------------------------------------------------------------------
+-- Estabelecimentos (CNPJ completo) com endereco da Receita Federal (consulta em 16/11/2026).
+-- LOJA = ponto de venda. BOX = boxes na R. Dr. Gabriel Penteado, 700 (abertos 03-05/2026): nao sao lojas.
+-- Regra: a loja corresponde ao CNPJ cujo endereco e o do ponto de venda (em geral a matriz, filial 1).
+-- ---------------------------------------------------------------------------
+create table if not exists dashboard.estabelecimentos (
+  cnpj          text primary key check (cnpj ~ '^\d{14}$'),
+  codcoligada   int not null,
+  codfilial     int not null,
+  razao_social  text,
+  endereco      text,
+  bairro        text,
+  cidade        text,
+  data_abertura date,
+  situacao      text,
+  tipo          text not null check (tipo in ('LOJA', 'BOX')),
+  consultado_em date not null default current_date
+);
+alter table dashboard.estabelecimentos enable row level security;
+-- (carga dos 30 CNPJs consultados aplicada direto no banco; ver migration dashboard_estabelecimentos_e_novas_ligacoes)
+
+alter table dashboard.coligada_loja add column if not exists cnpj_loja text;
+
+-- Ligacoes encontradas pelo endereco do CNPJ (16/11/2026)
+insert into dashboard.coligada_loja (codcoligada, loja_id, vigente_de, cnpj_loja, observacao) values
+ (10,'1492704231666','2012-08-31','16835919000135','05 Exp Bandeiras - Dona Alzira: Av. John Boyd Dunlop 3900 (Shopping Parque das Bandeiras)'),
+ (19,'1509102734372','2017-05-16','27746118000110','13 Exp Itaquera - Zelandia: Shopping Metro Itaquera, loja 521'),
+ (18,'1539008865481','2018-08-07','31132118000105','14 Exp Tatuape - Dona Vera: R. Domingos Agostim 91, loja 516 (Shopping Metro Tatuape)'),
+ (39,'1761329024289','2025-08-01','62028072000102','22 Exp Americana - Aurino: Av. N. Sra. de Fatima 2370, Americana'),
+ (5, '1546517555236','2018-03-09','29897524000109','15 Chusc Taquaral - Dona Gerci: R. Luiz Otavio 651'),
+ (25,'1546517555236','2019-05-22','33691470000106','15 Chusc Taquaral - Dona Rosa: R. Luiz Otavio 651 loja B'),
+ (4, '1546517555236','2008-05-30','09643366000153','15 Chusc Taquaral - Israel & Madaloz: R. Luiz Otavio 651 loja C'),
+ (3, '1546517555236','1996-02-28','01085267000191','15 Chusc Taquaral - Israel & Silva: CNPJ BAIXADO na Receita'),
+ (6, '1677506947351','2010-08-26','12562840000127','43 Chusc Marechal - Astori: Av. Marechal Carmona 516'),
+ (8, '1573658454708','2012-08-31','16835899000100','16 Chusc DPedro - Espeto de Prata: Av. Guilherme Campos 500 loja R4 (Shopping Parque D. Pedro)'),
+ (9, '1573658454708','2012-08-31','16835931000140','16 Chusc DPedro - Nelci: Av. Guilherme Campos 500 loja R-004'),
+ (42,'3s-8','2026-07-03','67888275000184','Expressa Sorocaba (3S) - Matusalen: Av. Gisele Constantino 1850 loja 322, Votorantim')
+on conflict do nothing;

@@ -16,7 +16,7 @@ import {
 export const dynamic = "force-dynamic";
 
 const RE_MES = /^\d{4}-(0[1-9]|1[0-2])$/;
-const RE_ID = /^\d{1,20}$/;
+const RE_ID = /^[A-Za-z0-9-]{1,40}$/;
 
 function Participacao({ titulo, itens, rotuloPessoas, nota }: { titulo: string; itens: Fatia[]; rotuloPessoas?: string; nota?: string }) {
   const total = itens.reduce((s, i) => s + i.valor, 0);
