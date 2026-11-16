@@ -11,11 +11,11 @@ const LINKS = [
   { href: "/modelo", label: "Modelo de dados" },
 ];
 
-export default function Nav() {
+export default function Nav({ admin = false }: { admin?: boolean }) {
   const path = usePathname();
   return (
     <nav className="nav">
-      {LINKS.map((l) => (
+      {[...LINKS, ...(admin ? [{ href: "/admin", label: "Usuários" }] : [])].map((l) => (
         <Link key={l.href} href={l.href} aria-current={path === l.href ? "page" : undefined}>
           {l.label}
         </Link>

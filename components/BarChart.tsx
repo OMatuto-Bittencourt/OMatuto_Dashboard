@@ -23,11 +23,13 @@ type Props = {
   rotuloCada?: number; // mostra 1 rotulo do eixo X a cada N barras
 };
 
-function escala(max: number): number[] {
+function escala(max: number, inteiro = false): number[] {
   if (max <= 0) return [0];
   const bruto = max / 4;
   const pot = 10 ** Math.floor(Math.log10(bruto));
-  const passo = [1, 2, 2.5, 5, 10].map((m) => m * pot).find((p) => p >= bruto) ?? bruto;
+  const candidato = [1, 2, 2.5, 5, 10].map((m) => m * pot).find((p) => p >= bruto) ?? bruto;
+  // Contagens: passo inteiro, para o eixo nao repetir rotulos (ex.: 0, 1, 1, 2, 2).
+  const passo = inteiro ? Math.max(1, Math.ceil(candidato)) : candidato;
   const ticks: number[] = [];
   for (let v = 0; v <= max + passo * 0.001; v += passo) ticks.push(v);
   if (ticks[ticks.length - 1] < max) ticks.push(ticks[ticks.length - 1] + passo);
@@ -41,7 +43,7 @@ export default function BarChart({ dados, formato, altura = 240, titulo, rotuloC
   const m = { top: 12, right: 8, bottom: 26, left: 64 };
   const iw = W - m.left - m.right;
   const ih = H - m.top - m.bottom;
-  const ticks = escala(Math.max(0, ...dados.map((d) => d.valor)));
+  const ticks = escala(Math.max(0, ...dados.map((d) => d.valor)), formato === "int");
   const topo = ticks[ticks.length - 1] || 1;
   const banda = iw / Math.max(dados.length, 1);
   const gap = Math.min(Math.max(banda * 0.25, 2), 16);

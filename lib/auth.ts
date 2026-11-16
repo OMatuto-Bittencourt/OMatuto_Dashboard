@@ -4,11 +4,13 @@ import { redirect } from "next/navigation";
 import { executar } from "./db";
 import { COOKIE_SESSAO, DURACAO_SESSAO_S, assinarSessao, lerSessao } from "./sessao-token";
 
+export type Perfil = "master" | "admin" | "usuario";
+
 export type Usuario = {
   id: string;
   email: string;
   nome: string | null;
-  perfil: "master" | "usuario";
+  perfil: Perfil;
   trocar_senha: boolean;
   versao_senha: number;
 };
@@ -32,6 +34,30 @@ export async function exigirUsuario(opts: { permitirTrocaPendente?: boolean } = 
   if (!u) redirect("/login");
   if (u.trocar_senha && !opts.permitirTrocaPendente) redirect("/trocar-senha");
   return u;
+}
+
+/** Pode gerenciar contas (tela de usuarios): master e admin. */
+export const ehAdmin = (u: Pick<Usuario, "perfil">) => u.perfil === "master" || u.perfil === "admin";
+
+/** Exige usuario master ou admin; os demais voltam ao painel. */
+export async function exigirAdmin(): Promise<Usuario> {
+  const u = await exigirUsuario();
+  if (!ehAdmin(u)) redirect("/");
+  return u;
+}
+
+/** Perfis que o ator pode atribuir ao criar uma conta. */
+export function perfisPermitidos(ator: Pick<Usuario, "perfil">): Perfil[] {
+  if (ator.perfil === "master") return ["usuario", "admin"];
+  if (ator.perfil === "admin") return ["usuario"];
+  return [];
+}
+
+/** Regra de quem pode alterar quem: ninguem altera o master nem a si mesmo; admin so altera usuario comum. */
+export function podeGerenciar(ator: Pick<Usuario, "id" | "perfil">, alvo: { id: string; perfil: Perfil }): boolean {
+  if (alvo.id === ator.id || alvo.perfil === "master") return false;
+  if (ator.perfil === "master") return true;
+  return ator.perfil === "admin" && alvo.perfil === "usuario";
 }
 
 export async function gravarCookieSessao(u: Pick<Usuario, "id" | "versao_senha">) {

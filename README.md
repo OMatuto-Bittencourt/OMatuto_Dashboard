@@ -66,8 +66,11 @@ No pooler, o usuário fica `dashboard_ro.<project-ref>`. Se o `bypassrls` for re
 - Sessão em cookie assinado (`httpOnly`, 8 horas). Trocar a senha encerra as sessões antigas.
 - No primeiro acesso, o usuário é obrigado a criar uma senha pessoal (`/trocar-senha`).
 - 5 tentativas erradas bloqueiam o e-mail/IP por 15 minutos.
-- Novo usuário (por enquanto, direto no banco): gere o hash com a mesma função de `lib/senha.ts` e insira em
-  `dashboard.usuarios` com `trocar_senha = true`.
+- Perfis: **master** cria admins e usuários; **admin** cria usuários; **usuário** só consulta o painel.
+  Ninguém altera o master; admin não altera outro admin.
+- Tela `/admin` (master e admin): criar conta (gera senha temporária, mostrada uma vez), desativar/reativar
+  (desativar derruba as sessões na hora), redefinir senha, e painel de quem criou cada conta e quando.
+- Toda ação fica registrada em `dashboard.usuarios_eventos`.
 
 ## Deploy (Easypanel)
 
