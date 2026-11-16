@@ -2,6 +2,7 @@ import BarChart from "@/components/BarChart";
 import MonthSelect from "@/components/MonthSelect";
 import { div, fmtBRL, fmtBRL2, fmtBRLCurto, fmtData, fmtInt, fmtMes, fmtPct } from "@/lib/format";
 import {
+  apuracaoPagamento3s,
   cobertura,
   diarioDoMes,
   entregasPorLoja,
@@ -17,7 +18,7 @@ export const dynamic = "force-dynamic";
 const RE_MES = /^\d{4}-(0[1-9]|1[0-2])$/;
 const RE_ID = /^\d{1,20}$/;
 
-function Participacao({ titulo, itens, rotuloPessoas }: { titulo: string; itens: Fatia[]; rotuloPessoas?: string }) {
+function Participacao({ titulo, itens, rotuloPessoas, nota }: { titulo: string; itens: Fatia[]; rotuloPessoas?: string; nota?: string }) {
   const total = itens.reduce((s, i) => s + i.valor, 0);
   const max = Math.max(1, ...itens.map((i) => i.valor));
   return (
@@ -69,6 +70,7 @@ function Participacao({ titulo, itens, rotuloPessoas }: { titulo: string; itens:
           </table>
         </div>
       )}
+      {nota && <p className="muted small">{nota}</p>}
     </div>
   );
 }
@@ -84,13 +86,17 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
   const c = cob.find((x) => x.mes === mes)!;
   const nomeLoja = loja ? lojas.find((l) => l.loja_id === loja)?.nome : "Todas as lojas";
 
-  const [diario, modos, meios, horas, entregas] = await Promise.all([
+  const [diario, modos, meios, horas, entregas, apurado3s] = await Promise.all([
     diarioDoMes(mes, loja),
     modoVenda(mes, loja),
     meioPagamento(mes, loja),
     faturamentoPorHora(mes, loja),
     entregasPorLoja(mes, loja),
+    apuracaoPagamento3s(),
   ]);
+  const notaMeios = apurado3s
+    ? `Lojas 3S: formas de pagamento apuradas até ${fmtData(apurado3s)}; vendas posteriores entram após a apuração. Por isso o total pode ficar abaixo do faturamento do período.`
+    : undefined;
 
   const fat = diario.reduce((s, d) => s + d.faturamento, 0);
   const pessoas = diario.reduce((s, d) => s + d.pessoas, 0);
@@ -175,7 +181,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
 
       <section className="grid two">
         <Participacao titulo="Modo de venda" itens={modos} rotuloPessoas="Clientes" />
-        <Participacao titulo="Meio de pagamento" itens={meios} />
+        <Participacao titulo="Meio de pagamento" itens={meios} nota={notaMeios} />
       </section>
 
       <section className="card">

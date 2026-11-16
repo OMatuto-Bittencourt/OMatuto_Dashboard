@@ -3,6 +3,7 @@ import Link from "next/link";
 import Nav from "@/components/Nav";
 import { sair } from "@/app/acoes-auth";
 import { exigirUsuario } from "@/lib/auth";
+import { SCHEMA_PAINEL } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,14 @@ export default async function PainelLayout({ children }: { children: React.React
   const u = await exigirUsuario();
   return (
     <>
+      {SCHEMA_PAINEL !== "dashboard" && (
+        <div
+          role="status"
+          style={{ background: "#fff4d6", color: "#7a5200", borderBottom: "1px solid #f0d58a", padding: "6px 16px", fontSize: 13, textAlign: "center" }}
+        >
+          PREVIEW LOCAL · dados do schema <code>{SCHEMA_PAINEL}</code> (Colibri + 3S) · não é o painel oficial
+        </div>
+      )}
       <header className="topbar">
         <Link href="/" className="brand" aria-label="Início">
           <Image src="/brand/mto.webp" alt="MTO Administração de Franquias" width={94} height={40} priority />
