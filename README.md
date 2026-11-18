@@ -44,20 +44,33 @@ RAT/FAP, terceiros, benefícios e provisões, porque a tabela `rh_matuto.encargo
 | `DATABASE_CA_CERT` | não | Certificado CA do Supabase (PEM) para validar o TLS do banco |
 | `DATABASE_SSL=disable` | não | Só para desenvolvimento com Postgres local |
 
-Todas as consultas rodam em transação `read only`. Mesmo assim, recomenda-se um usuário só de leitura
+As consultas do painel rodam em transação `read only`. As únicas gravações são as de login/contas
+(`dashboard.usuarios` e `dashboard.usuarios_eventos`: troca de senha, criar/desativar conta, histórico).
+Recomenda-se um usuário dedicado, só com leitura nos dados e gravação nessas duas tabelas
 (rodar no SQL Editor do Supabase, trocando a senha):
 
 ```sql
 create role dashboard_ro login password 'TROQUE_ESTA_SENHA';
+
+-- leitura
 grant usage on schema colibri_matuto, rh_matuto, dashboard to dashboard_ro;
 grant select on all tables in schema colibri_matuto, rh_matuto, dashboard to dashboard_ro;
 alter default privileges in schema colibri_matuto grant select on tables to dashboard_ro;
 alter default privileges in schema rh_matuto grant select on tables to dashboard_ro;
 alter default privileges in schema dashboard grant select on tables to dashboard_ro;
+
+-- gravação só onde o app precisa (login, troca de senha, admin de contas)
+grant insert, update on dashboard.usuarios, dashboard.usuarios_eventos to dashboard_ro;
+grant usage on all sequences in schema dashboard to dashboard_ro;  -- usuarios_eventos.id é identity
+
 alter role dashboard_ro bypassrls;  -- as tabelas têm RLS ligado sem políticas
 ```
 
-No pooler, o usuário fica `dashboard_ro.<project-ref>`. Se o `bypassrls` for recusado, crie políticas
+Sem os grants de gravação, o login até funciona, mas troca de senha e a tela `/admin` falham por permissão.
+
+No pooler, o usuário fica `dashboard_ro.<project-ref>`. Use o host que aparece em **Connect → Transaction pooler**
+(pode ser `aws-0-…` ou `aws-1-…`; o host errado responde `tenant/user not found`). Se a senha tiver `@`, `#`, `/`,
+`?` ou `:`, codifique na URL (`@` → `%40`, `#` → `%23`). Se o `bypassrls` for recusado, crie políticas
 `for select to dashboard_ro using (true)` nas tabelas lidas, ou use temporariamente a connection string padrão.
 
 ## Acesso
