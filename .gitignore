@@ -6,6 +6,9 @@ node_modules/
 out/
 *.tsbuildinfo
 next-env.d.ts
+# Variáveis de ambiente com segredos (senha do banco, SESSION_SECRET): nunca versionar
 .env
+.env.local
 .env.*
 !.env.example
+.next-*/

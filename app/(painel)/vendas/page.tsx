@@ -1,5 +1,12 @@
 import BarChart from "@/components/BarChart";
 import MonthSelect from "@/components/MonthSelect";
+import Card from "@/components/ui/Card";
+import { BotaoFiltros, FiltrosMobileProvider } from "@/components/ui/FiltrosMobile";
+import KpiCard from "@/components/ui/KpiCard";
+import PageHeader from "@/components/ui/PageHeader";
+import { IconeBanco, IconeBicicleta, IconeCalendario, IconeCartao, IconeRecibo, IconeRelogio, IconeSacola, IconeUsuarios } from "@/components/ui/icones";
+import TabelaEntregas from "@/components/vendas/TabelaEntregas";
+import TabelaParticipacao from "@/components/vendas/TabelaParticipacao";
 import { div, fmtBRL, fmtBRL2, fmtBRLCurto, fmtData, fmtInt, fmtMes, fmtPct } from "@/lib/format";
 import {
   apuracaoPagamento3s,
@@ -10,70 +17,13 @@ import {
   lojasComVenda,
   meioPagamento,
   modoVenda,
-  type Fatia,
 } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
 const RE_MES = /^\d{4}-(0[1-9]|1[0-2])$/;
+// Aceita ids do Colibri (numéricos) e das lojas só do 3S ("3s-<store_id>").
 const RE_ID = /^[A-Za-z0-9-]{1,40}$/;
-
-function Participacao({ titulo, itens, rotuloPessoas, nota }: { titulo: string; itens: Fatia[]; rotuloPessoas?: string; nota?: string }) {
-  const total = itens.reduce((s, i) => s + i.valor, 0);
-  const max = Math.max(1, ...itens.map((i) => i.valor));
-  return (
-    <div className="card">
-      <h2>{titulo}</h2>
-      {itens.length === 0 ? (
-        <p className="muted">Sem dados no período.</p>
-      ) : (
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th></th>
-                <th className="num">Valor</th>
-                <th className="num">Participação</th>
-                {rotuloPessoas && <th className="num">{rotuloPessoas}</th>}
-                {rotuloPessoas && <th className="num">Ticket</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {itens.map((i) => (
-                <tr key={i.rotulo}>
-                  <td style={{ whiteSpace: "nowrap" }}>{i.rotulo}</td>
-                  <td className="num">{fmtBRL(i.valor)}</td>
-                  <td className="num">
-                    <div className="bar-cell">
-                      <span>{fmtPct(div(i.valor, total))}</span>
-                      <span className="bar-track" aria-hidden>
-                        <span className="bar-fill" style={{ display: "block", width: `${(i.valor / max) * 100}%` }} />
-                      </span>
-                    </div>
-                  </td>
-                  {rotuloPessoas && <td className="num">{fmtInt(i.pessoas)}</td>}
-                  {rotuloPessoas && <td className="num">{fmtBRL2(div(i.valor, i.pessoas))}</td>}
-                </tr>
-              ))}
-              <tr>
-                <td>
-                  <b>Total</b>
-                </td>
-                <td className="num">
-                  <b>{fmtBRL(total)}</b>
-                </td>
-                <td></td>
-                {rotuloPessoas && <td className="num">{fmtInt(itens.reduce((s, i) => s + (i.pessoas ?? 0), 0))}</td>}
-                {rotuloPessoas && <td></td>}
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      )}
-      {nota && <p className="muted small">{nota}</p>}
-    </div>
-  );
-}
 
 export default async function Page({ searchParams }: { searchParams: Promise<{ mes?: string; loja?: string }> }) {
   const sp = await searchParams;
@@ -108,114 +58,93 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
   const horasVenda = horas.filter((h) => h.faturamento > 0);
 
   return (
-    <>
-      <h1>Vendas</h1>
-      <p className="sub">
-        {nomeLoja} · {fmtMes(mes)} · {c.dias_sincronizados} de {c.dias_esperados} dias sincronizados do Colibri.
-      </p>
+    <FiltrosMobileProvider>
+      <div className="grid gap-5">
+        <PageHeader
+          titulo="Vendas"
+          descricao={`${nomeLoja} · ${fmtMes(mes)} · ${c.dias_sincronizados} de ${c.dias_esperados} dias sincronizados do Colibri.`}
+        />
 
-      <div className="toolbar">
-        <MonthSelect meses={lista} atual={mes} rotulos={rotulos} base="/vendas" lojas={lojas} lojaAtual={loja} />
+        <div className="flex flex-wrap items-center gap-3">
+          <MonthSelect meses={lista} atual={mes} rotulos={rotulos} base="/vendas" lojas={lojas} lojaAtual={loja} />
+          {entregas.length > 0 && <BotaoFiltros />}
+        </div>
+
+        <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4" aria-label="Indicadores do período">
+          <KpiCard
+            destaque
+            className="col-span-2 xl:col-span-1"
+            icone={IconeBanco}
+            rotulo="Faturamento"
+            valor={fmtBRLCurto(fat)}
+            detalhe={`média ${fmtBRLCurto(div(fat, diasVenda))} por dia com venda`}
+          />
+          <KpiCard icone={IconeUsuarios} rotulo="Clientes" valor={fmtInt(pessoas)} detalhe={`${fmtInt(div(pessoas, diasVenda))} por dia`} />
+          <KpiCard icone={IconeRecibo} rotulo="Ticket médio" valor={fmtBRL2(div(fat, pessoas))} detalhe="faturamento ÷ clientes" />
+          <KpiCard
+            icone={IconeBicicleta}
+            rotulo="Participação delivery"
+            valor={fmtPct(div(delivery, fat))}
+            detalhe={`${fmtBRLCurto(delivery)} em entregas`}
+            className="col-span-2 xl:col-span-1"
+          />
+        </section>
+
+        <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <Card cantoDestaque titulo="Faturamento diário" icone={IconeCalendario}>
+            {diario.length ? (
+              <BarChart
+                titulo="Faturamento diário"
+                dados={diario.map((d) => ({
+                  rotulo: d.data.slice(8, 10),
+                  valor: d.faturamento,
+                  detalhe: [fmtData(d.data), `${fmtInt(d.pessoas)} clientes`],
+                }))}
+                formato="brl"
+                rotuloCada={diario.length > 16 ? 3 : 1}
+              />
+            ) : (
+              <p className="m-0 py-10 text-center text-muted-foreground">Sem vendas no período.</p>
+            )}
+          </Card>
+          <Card cantoDestaque titulo="Faturamento médio por hora do dia" icone={IconeRelogio} rodape="Média por dia sincronizado. Inclui taxa de serviço.">
+            {horasVenda.length ? (
+              <BarChart
+                titulo="Faturamento médio por hora"
+                dados={horasVenda.map((h) => ({
+                  rotulo: `${String(h.hora).padStart(2, "0")}h`,
+                  valor: h.faturamento / Math.max(h.dias, 1),
+                  detalhe: [`total ${fmtBRL(h.faturamento)}`, `${fmtInt(div(h.pessoas, h.dias))} clientes/dia`],
+                }))}
+                formato="brl"
+                rotuloCada={horasVenda.length > 14 ? 2 : 1}
+              />
+            ) : (
+              <p className="m-0 py-10 text-center text-muted-foreground">Sem dados no período.</p>
+            )}
+          </Card>
+        </section>
+
+        <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <Card titulo="Modo de venda" icone={IconeSacola}>
+            <TabelaParticipacao itens={modos} rotulo="Modo" comClientes />
+          </Card>
+          <Card titulo="Meio de pagamento" icone={IconeCartao}>
+            <TabelaParticipacao
+              itens={meios}
+              rotulo="Meio"
+              nota={
+                <>
+                  Meios de pagamento agrupados por categoria a partir do nome cadastrado no PDV.
+                  {notaMeios && <> {notaMeios}</>}
+                </>
+              }
+            />
+          </Card>
+        </section>
+
+        <TabelaEntregas linhas={entregas} />
       </div>
-
-      <section className="grid kpis">
-        <div className="card kpi">
-          <div className="label">Faturamento</div>
-          <div className="value">{fmtBRLCurto(fat)}</div>
-          <div className="hint">média {fmtBRLCurto(div(fat, diasVenda))} por dia com venda</div>
-        </div>
-        <div className="card kpi">
-          <div className="label">Clientes</div>
-          <div className="value">{fmtInt(pessoas)}</div>
-          <div className="hint">{fmtInt(div(pessoas, diasVenda))} por dia</div>
-        </div>
-        <div className="card kpi">
-          <div className="label">Ticket médio</div>
-          <div className="value">{fmtBRL2(div(fat, pessoas))}</div>
-          <div className="hint">faturamento ÷ clientes</div>
-        </div>
-        <div className="card kpi">
-          <div className="label">Participação delivery</div>
-          <div className="value">{fmtPct(div(delivery, fat))}</div>
-          <div className="hint">{fmtBRLCurto(delivery)} em entregas</div>
-        </div>
-      </section>
-
-      <section className="grid two">
-        <div className="card">
-          <h2>Faturamento diário</h2>
-          {diario.length ? (
-            <BarChart
-              titulo="Faturamento diário"
-              dados={diario.map((d) => ({
-                rotulo: d.data.slice(8, 10),
-                valor: d.faturamento,
-                detalhe: [fmtData(d.data), `${fmtInt(d.pessoas)} clientes`],
-              }))}
-              formato="brl"
-              rotuloCada={diario.length > 16 ? 3 : 1}
-            />
-          ) : (
-            <p className="muted">Sem vendas no período.</p>
-          )}
-        </div>
-        <div className="card">
-          <h2>Faturamento médio por hora do dia</h2>
-          {horasVenda.length ? (
-            <BarChart
-              titulo="Faturamento médio por hora"
-              dados={horasVenda.map((h) => ({
-                rotulo: `${String(h.hora).padStart(2, "0")}h`,
-                valor: h.faturamento / Math.max(h.dias, 1),
-                detalhe: [`total ${fmtBRL(h.faturamento)}`, `${fmtInt(div(h.pessoas, h.dias))} clientes/dia`],
-              }))}
-              formato="brl"
-              rotuloCada={horasVenda.length > 14 ? 2 : 1}
-            />
-          ) : (
-            <p className="muted">Sem dados no período.</p>
-          )}
-          <p className="muted small">Média por dia sincronizado. Inclui taxa de serviço.</p>
-        </div>
-      </section>
-
-      <section className="grid two">
-        <Participacao titulo="Modo de venda" itens={modos} rotuloPessoas="Clientes" />
-        <Participacao titulo="Meio de pagamento" itens={meios} nota={notaMeios} />
-      </section>
-
-      <section className="card">
-        <h2>Entregas por loja</h2>
-        {entregas.length === 0 ? (
-          <p className="muted">Sem entregas no período.</p>
-        ) : (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Loja</th>
-                  <th className="num">Entregas</th>
-                  <th className="num">Total pedidos</th>
-                  <th className="num">Pedido médio</th>
-                  <th className="num">Taxa de entrega</th>
-                </tr>
-              </thead>
-              <tbody>
-                {entregas.map((e) => (
-                  <tr key={e.loja_nome}>
-                    <td style={{ whiteSpace: "nowrap" }}>{e.loja_nome}</td>
-                    <td className="num">{fmtInt(e.entregas)}</td>
-                    <td className="num">{fmtBRL(e.total_pedido)}</td>
-                    <td className="num">{fmtBRL2(div(e.total_pedido, e.entregas))}</td>
-                    <td className="num">{fmtBRL(e.taxa_entrega)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-        <p className="muted small">Meios de pagamento agrupados por categoria a partir do nome cadastrado no PDV.</p>
-      </section>
-    </>
+    </FiltrosMobileProvider>
   );
 }

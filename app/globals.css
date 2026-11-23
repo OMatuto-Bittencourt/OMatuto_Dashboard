@@ -1,16 +1,83 @@
+@layer theme, base, components, legacy, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/* Tema: `dark:` segue o atributo data-theme do <html> (definido pelo script em app/layout.tsx). */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme {
+  --color-brand-red-500: #F22718;
+  --color-brand-red-600: #E82E15;
+  --color-brand-red-700: #C42615;
+  --color-brand-red-800: #A62217;
+  --color-brand-red-900: #801A0A;
+  --color-brand-red-950: #500E08;
+  --color-brand-earth-400: #FFAA04;
+  --color-brand-earth-500: #EE9E03;
+  --color-brand-earth-600: #D28D0F;
+  --color-brand-earth-700: #AB730F;
+  --color-brand-earth-800: #865F10;
+  --color-brand-earth-900: #564405;
+  --color-brand-creme: #faf0ea;
+  --font-heading: var(--font-lilita), "Lilita One", sans-serif;
+  --font-body: "Bebas Neue Pro", sans-serif;
+  --font-complementary: "Shopie", sans-serif;
+  --font-interface: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
+  --spacing: 0.25rem;
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.05);
+  --shadow-sm: 0 2px 6px rgb(0 0 0 / 0.08);
+  --shadow-md: 0 4px 12px rgb(0 0 0 / 0.1);
+  --breakpoint-sm: 40rem;
+  --breakpoint-md: 48rem;
+  --breakpoint-lg: 64rem;
+  --breakpoint-xl: 80rem;
+  --breakpoint-2xl: 96rem;
+}
+
+@theme inline {
+  --color-background: var(--ds-background);
+  --color-foreground: var(--ds-foreground);
+  --color-foreground-suave: var(--text-secondary);
+  --color-surface: var(--ds-surface);
+  --color-surface-muted: var(--ds-surface-muted);
+  --color-primary: var(--ds-primary);
+  --color-primary-foreground: var(--ds-primary-foreground);
+  --color-secondary: var(--ds-secondary);
+  --color-secondary-foreground: var(--ds-secondary-foreground);
+  --color-accent: var(--ds-accent);
+  --color-border: var(--ds-border);
+  --color-muted: var(--ds-muted);
+  --color-muted-foreground: var(--ds-muted-foreground);
+  --color-success: var(--ds-success);
+  --color-warning: var(--ds-warning);
+  --color-danger: var(--ds-danger);
+  --color-focus: var(--ds-focus);
+}
+
+@layer legacy {
 :root {
   color-scheme: light;
-  --bg: #f5f5f3;
-  --surface-1: #fcfcfb;
-  --surface-2: #f0efec;
-  --border: #e2e1dc;
-  --text-primary: #0b0b0b;
-  --text-secondary: #52514e;
-  --text-muted: #7a7974;
+  /* Neutros quentes do layout 2026 (creme). Valem também para as telas ainda no CSS antigo. */
+  --bg: #faf0ea;
+  --surface-1: #fffaf7;
+  --surface-2: #f5e9e2;
+  --border: #ecdcd2;
+  --text-primary: #1c1917;
+  --text-secondary: #57534e;
+  --text-muted: #78716c;
   --accent: #2a78d6;
   --series-1: #2a78d6;
   --series-1-soft: #86b6ef;
-  --grid: #e8e7e3;
+  /* Barras dos gráficos: degradê vermelho; mês parcial em rosa. */
+  --barra-topo: #f22718;
+  --barra-base: #a62217;
+  --barra-parcial: #f3b4ae;
+  --grid: #efe1d8;
   --good: #0ca30c;
   --warning: #b07a00;
   --critical: #d03b3b;
@@ -20,22 +87,41 @@
   --marca-preto: #0b0b0b;
   --marca-ambar: #f6ab10;
   --campo-borda: #d6d5cf;
+  --ds-background: var(--bg);
+  --ds-foreground: var(--text-primary);
+  --ds-surface: var(--surface-1);
+  --ds-surface-muted: var(--surface-2);
+  --ds-primary: #C42615;
+  --ds-primary-foreground: #fff;
+  --ds-secondary: #FFAA04;
+  --ds-secondary-foreground: #0b0b0b;
+  --ds-accent: #D28D0F;
+  --ds-border: var(--border);
+  --ds-muted: var(--surface-2);
+  --ds-muted-foreground: var(--text-muted);
+  --ds-success: var(--good);
+  --ds-warning: var(--warning);
+  --ds-danger: var(--critical);
+  --ds-focus: #D28D0F;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --campo-borda: #3a3a37;
-    --bg: #111110;
-    --surface-1: #1a1a19;
-    --surface-2: #232321;
-    --border: #2f2f2c;
-    --text-primary: #f0efec;
-    --text-secondary: #c3c2b7;
-    --text-muted: #8f8e88;
+    --campo-borda: #3a3532;
+    --bg: #121010;
+    --surface-1: #1c1919;
+    --surface-2: #262222;
+    --border: #34302e;
+    --text-primary: #f5f1ee;
+    --text-secondary: #cfc7c2;
+    --text-muted: #9a918b;
     --accent: #3987e5;
-    --series-1: #3987e5;
+    --series-1: #4a94ec;
     --series-1-soft: #1c5cab;
-    --grid: #2a2a28;
+    --barra-topo: #f22718;
+    --barra-base: #b3200f;
+    --barra-parcial: #8a4a46;
+    --grid: #2c2826;
     --good: #0ca30c;
     --warning: #fab219;
     --critical: #e66767;
@@ -44,19 +130,22 @@
   }
 }
 :root[data-theme="dark"] {
-  --campo-borda: #3a3a37;
+  --campo-borda: #3a3532;
   color-scheme: dark;
-  --bg: #111110;
-  --surface-1: #1a1a19;
-  --surface-2: #232321;
-  --border: #2f2f2c;
-  --text-primary: #f0efec;
-  --text-secondary: #c3c2b7;
-  --text-muted: #8f8e88;
+  --bg: #121010;
+  --surface-1: #1c1919;
+  --surface-2: #262222;
+  --border: #34302e;
+  --text-primary: #f5f1ee;
+  --text-secondary: #cfc7c2;
+  --text-muted: #9a918b;
   --accent: #3987e5;
-  --series-1: #3987e5;
+  --series-1: #4a94ec;
   --series-1-soft: #1c5cab;
-  --grid: #2a2a28;
+  --barra-topo: #f22718;
+  --barra-base: #b3200f;
+  --barra-parcial: #8a4a46;
+  --grid: #2c2826;
   --warning: #fab219;
   --critical: #e66767;
   --warn-bg: #2e2510;
@@ -65,6 +154,7 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; }
+:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: 2px; }
 body {
   background: var(--bg);
   color: var(--text-primary);
@@ -169,25 +259,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 .tooltip b { font-variant-numeric: tabular-nums; }
 .error { padding: 24px; }
 
-/* ---------- Acesso (login / troca de senha) ---------- */
-.acesso { min-height: 100vh; display: grid; grid-template-columns: minmax(320px, 5fr) 7fr; background: var(--surface-1); }
-.acesso-marca {
-  background: var(--marca-preto); color: #f0efec; padding: 48px 56px;
-  display: flex; flex-direction: column; justify-content: space-between; gap: 40px;
-}
-.acesso-logo { width: 190px; height: auto; }
-.acesso-chamada { border-left: 2px solid var(--marca-ambar); padding-left: 18px; }
-.acesso-titulo { font-family: var(--font-marca), system-ui, sans-serif; font-size: 34px; line-height: 1.1; margin: 0 0 10px; color: #fff; }
-.acesso-texto { margin: 0; color: #a9a8a2; font-size: 15px; max-width: 30ch; }
-.acesso-marcas { display: flex; gap: 14px; flex-wrap: wrap; }
-.acesso-marcas img { width: 132px; height: auto; opacity: .9; }
-
-.acesso-form { display: flex; align-items: center; justify-content: center; padding: 48px 24px; }
-.acesso-caixa { width: 100%; max-width: 380px; }
-.acesso-caixa h1 { font-size: 30px; margin-bottom: 6px; }
-.acesso-caixa .sub { margin-bottom: 28px; }
-.acesso-rodape { margin-top: 28px; color: var(--text-muted); font-size: 13px; }
-
+/* ---------- Formulários antigos (usados pela tela /admin até ela migrar para components/ui) ---------- */
 .form { display: grid; gap: 18px; }
 .campo { display: grid; gap: 6px; }
 .campo label { font-size: 13px; color: var(--text-secondary); }
@@ -198,13 +270,6 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 }
 .campo input:focus { outline: none; border-color: var(--text-primary); box-shadow: 0 0 0 3px rgba(246, 171, 16, .35); }
 .dica { font-size: 12px; color: var(--text-muted); }
-.senha { position: relative; }
-.senha input { padding-right: 76px; }
-.ver {
-  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
-  font: inherit; font-size: 12px; padding: 4px 8px; border: 0; border-radius: 6px; background: none; color: var(--text-secondary); cursor: pointer;
-}
-.ver:hover { background: var(--surface-2); }
 .botao {
   font: inherit; font-size: 15px; padding: 12px 16px; border-radius: 8px; border: 1px solid var(--marca-preto);
   background: var(--marca-preto); color: #fff; cursor: pointer; transition: background .15s;
@@ -217,16 +282,6 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
   background: var(--crit-bg); color: var(--text-primary); border-left: 3px solid var(--critical);
 }
 
-@media (max-width: 820px) {
-  .acesso { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
-  .acesso-marca { padding: 20px 16px; gap: 14px; justify-content: flex-start; }
-  .acesso-logo { width: 110px; }
-  .acesso-chamada { padding-left: 12px; }
-  .acesso-titulo { font-size: 20px; margin: 0; }
-  .acesso-texto { display: none; }
-  .acesso-marcas { display: none; }
-  .acesso-form { align-items: flex-start; padding: 32px 16px 48px; }
-}
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .botao { background: #f0efec; color: #0b0b0b; border-color: #f0efec; }
   :root:not([data-theme="light"]) .botao:hover { background: #fff; }
@@ -256,3 +311,5 @@ tr.inativa td { color: var(--text-muted); }
 .historico { list-style: none; margin: 0; padding: 0; display: grid; }
 .historico li { display: grid; grid-template-columns: 130px 1fr; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
 @media (max-width: 520px) { .historico li { grid-template-columns: 1fr; gap: 2px; } }
+
+} /* fim de @layer legacy */
