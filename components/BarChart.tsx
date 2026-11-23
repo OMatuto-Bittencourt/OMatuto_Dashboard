@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { fmtBRL, fmtBRLCurto, fmtInt } from "@/lib/format";
 
 const FORMATOS = {
@@ -10,6 +10,7 @@ const FORMATOS = {
 
 export type Ponto = {
   rotulo: string; // eixo X
+  rotuloCurto?: string; // usado em gráficos estreitos (ex.: "mai" em vez de "mai/2026")
   valor: number;
   detalhe?: string[]; // linhas extras do tooltip
   destaque?: boolean; // false = barra atenuada (ex.: mes parcial)
@@ -36,7 +37,22 @@ function escala(max: number): number[] {
 
 export default function BarChart({ dados, formato, altura = 240, titulo, rotuloCada = 1 }: Props) {
   const [ativo, setAtivo] = useState<number | null>(null);
-  const W = 640;
+  const grad = `barra-${useId().replace(/:/g, "")}`; // id único por gráfico
+  // Desenha na largura real do container: texto dos eixos sempre no tamanho certo (não encolhe no celular).
+  const caixa = useRef<HTMLDivElement>(null);
+  const [W, setW] = useState(640);
+  useEffect(() => {
+    const el = caixa.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setW(Math.max(260, Math.round(e.contentRect.width))));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const estreito = W < 480;
+  // Rarefaz os rótulos do eixo X quando não cabem (~7px por caractere a 11px + folga).
+  const textoRotulo = (d: Ponto) => (estreito && d.rotuloCurto ? d.rotuloCurto : d.rotulo);
+  const largRotulo = Math.max(1, ...dados.map((d) => textoRotulo(d).length)) * 7 + 10;
+  const cada = Math.max(rotuloCada, Math.ceil(dados.length / Math.max(1, Math.floor((W - 72) / largRotulo))));
   const H = altura;
   const m = { top: 12, right: 8, bottom: 26, left: 64 };
   const iw = W - m.left - m.right;
@@ -65,8 +81,14 @@ export default function BarChart({ dados, formato, altura = 240, titulo, rotuloC
   const py = p ? (Math.max(y(p.valor) - 6, 0) / H) * 100 : 0;
 
   return (
-    <div className="chart">
+    <div className="chart" ref={caixa}>
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={titulo} onMouseLeave={() => setAtivo(null)}>
+        <defs>
+          <linearGradient id={grad} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="var(--barra-topo)" />
+            <stop offset="1" stopColor="var(--barra-base)" />
+          </linearGradient>
+        </defs>
         <g className="axis">
           {ticks.map((t) => (
             <g key={t}>
@@ -77,9 +99,9 @@ export default function BarChart({ dados, formato, altura = 240, titulo, rotuloC
             </g>
           ))}
           {dados.map((d, i) =>
-            i % rotuloCada === 0 ? (
+            i % cada === 0 ? (
               <text key={d.rotulo} x={m.left + i * banda + banda / 2} y={H - 8} textAnchor="middle">
-                {d.rotulo}
+                {textoRotulo(d)}
               </text>
             ) : null,
           )}
@@ -89,6 +111,7 @@ export default function BarChart({ dados, formato, altura = 240, titulo, rotuloC
             key={d.rotulo}
             className={`bar${d.destaque === false ? " dim" : ""}${ativo === i ? " active" : ""}`}
             d={barra(m.left + i * banda + gap / 2, d.valor)}
+            style={{ fill: d.destaque === false ? "var(--barra-parcial)" : `url(#${grad})` }}
           />
         ))}
         <line className="baseline" x1={m.left} x2={W - m.right} y1={m.top + ih} y2={m.top + ih} />

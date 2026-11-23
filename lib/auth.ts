@@ -2,6 +2,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { executar } from "./db";
+import { SEM_LOGIN, USUARIO_DEV } from "./dev-sem-login";
 import { COOKIE_SESSAO, DURACAO_SESSAO_S, assinarSessao, lerSessao } from "./sessao-token";
 
 export type Usuario = {
@@ -28,6 +29,7 @@ export async function usuarioAtual(): Promise<Usuario | null> {
 
 /** Exige sessao valida. Por padrao, tambem exige que a troca de senha obrigatoria ja tenha sido feita. */
 export async function exigirUsuario(opts: { permitirTrocaPendente?: boolean } = {}): Promise<Usuario> {
+  if (SEM_LOGIN) return USUARIO_DEV; // só em `next dev` com DEV_SEM_LOGIN=1 (ver lib/dev-sem-login.ts)
   const u = await usuarioAtual();
   if (!u) redirect("/login");
   if (u.trocar_senha && !opts.permitirTrocaPendente) redirect("/trocar-senha");
