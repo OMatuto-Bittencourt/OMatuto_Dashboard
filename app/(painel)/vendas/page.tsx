@@ -21,8 +21,9 @@ import {
 
 export const dynamic = "force-dynamic";
 
-const RE_MES = /^d{4}-(0[1-9]|1[0-2])$/;
-const RE_ID = /^d{1,20}$/;
+const RE_MES = /^\d{4}-(0[1-9]|1[0-2])$/;
+// Aceita ids do Colibri (numéricos) e das lojas só do 3S ("3s-<store_id>").
+const RE_ID = /^[A-Za-z0-9-]{1,40}$/;
 
 export default async function Page({ searchParams }: { searchParams: Promise<{ mes?: string; loja?: string }> }) {
   const sp = await searchParams;

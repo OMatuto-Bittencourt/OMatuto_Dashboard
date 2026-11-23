@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
-import { IconeBanco, IconeBicicleta, IconeCasa, IconeLink, IconeSinal } from "@/components/ui/icones";
+import { IconeBanco, IconeBicicleta, IconeCasa, IconeLink, IconeSinal, IconeUsuarios } from "@/components/ui/icones";
 
 export const LINKS = [
   { href: "/", rotulo: "Visão geral", Icone: IconeCasa },
@@ -13,12 +13,15 @@ export const LINKS = [
   { href: "/modelo", rotulo: "Modelo de dados", Icone: IconeBanco },
 ];
 
+// Só para master/admin (gestão de contas). O acesso é conferido também na página (exigirAdmin).
+const LINK_ADMIN = { href: "/admin", rotulo: "Usuários", Icone: IconeUsuarios };
+
 /** Menu principal vertical (barra lateral e gaveta do mobile). */
-export default function Nav({ aoNavegar }: { aoNavegar?: () => void }) {
+export default function Nav({ aoNavegar, admin = false }: { aoNavegar?: () => void; admin?: boolean }) {
   const path = usePathname();
   return (
     <nav aria-label="Principal" className="grid gap-1.5">
-      {LINKS.map(({ href, rotulo, Icone }) => {
+      {[...LINKS, ...(admin ? [LINK_ADMIN] : [])].map(({ href, rotulo, Icone }) => {
         const ativo = path === href;
         return (
           <Link

@@ -15,6 +15,8 @@ const LOGO = "/brand/logo-topo.png"; // 2172×724
 
 type Props = {
   usuario: UsuarioResumo;
+  /** Mostra o item "Usuários" no menu (master/admin). */
+  admin?: boolean;
   pendencias: ItemPendencia[];
   /** Ilustração do personagem no pé da barra lateral (null = arquivo ainda não enviado). */
   personagem: string | null;
@@ -29,12 +31,22 @@ const Logo = ({ className }: { className?: string }) => (
 );
 
 /** Conteúdo da barra lateral (fixa no desktop, gaveta no mobile). */
-function Lateral({ personagem, aoNavegar, children }: { personagem: string | null; aoNavegar?: () => void; children?: ReactNode }) {
+function Lateral({
+  personagem,
+  admin,
+  aoNavegar,
+  children,
+}: {
+  personagem: string | null;
+  admin?: boolean;
+  aoNavegar?: () => void;
+  children?: ReactNode;
+}) {
   return (
     <div className="relative flex h-full flex-col overflow-hidden bg-linear-to-b from-brand-red-700 via-brand-red-800 to-brand-red-900 px-4 pb-4 pt-6 text-white">
       <Logo className="mx-auto w-44" />
       <div className="mt-8">
-        <Nav aoNavegar={aoNavegar} />
+        <Nav aoNavegar={aoNavegar} admin={admin} />
       </div>
       {children}
       <div className="relative mt-auto h-72 shrink-0" aria-hidden>
@@ -50,7 +62,7 @@ function Lateral({ personagem, aoNavegar, children }: { personagem: string | nul
   );
 }
 
-export default function Shell({ usuario, pendencias, personagem, aviso, children }: Props) {
+export default function Shell({ usuario, admin, pendencias, personagem, aviso, children }: Props) {
   const [gaveta, setGaveta] = useState(false);
   const path = usePathname();
 
@@ -71,7 +83,7 @@ export default function Shell({ usuario, pendencias, personagem, aviso, children
     <div className="min-h-dvh bg-background font-interface text-foreground lg:grid lg:grid-cols-[232px_minmax(0,1fr)]">
       {/* ---------- Barra lateral (desktop) ---------- */}
       <aside className="sticky top-0 hidden h-dvh lg:block">
-        <Lateral personagem={personagem} />
+        <Lateral personagem={personagem} admin={admin} />
       </aside>
 
       {/* ---------- Gaveta (mobile) ---------- */}
@@ -83,7 +95,7 @@ export default function Shell({ usuario, pendencias, personagem, aviso, children
           aria-label="Menu"
           className={cn("absolute inset-y-0 left-0 w-72 max-w-[85vw] shadow-2xl transition-transform", gaveta ? "translate-x-0" : "-translate-x-full")}
         >
-          <Lateral personagem={personagem} aoNavegar={() => setGaveta(false)}>
+          <Lateral personagem={personagem} admin={admin} aoNavegar={() => setGaveta(false)}>
             <div className="mt-6 grid gap-1 rounded-xl bg-surface p-2 text-sm text-foreground">
               <div className="flex items-center justify-between gap-2 px-3 pt-1">
                 <span className="truncate font-semibold">{usuario.nome ?? usuario.email}</span>

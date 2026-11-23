@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import Shell from "@/components/painel/Shell";
 import type { ItemPendencia } from "@/components/painel/Sino";
-import { exigirUsuario } from "@/lib/auth";
+import { ehAdmin, exigirUsuario } from "@/lib/auth";
 import { fmtBRLCurto, fmtInt } from "@/lib/format";
 import { pendencias, SCHEMA_PAINEL, type Pendencia } from "@/lib/queries";
 
@@ -35,6 +35,7 @@ export default async function PainelLayout({ children }: { children: React.React
   return (
     <Shell
       usuario={{ nome: u.nome, email: u.email }}
+      admin={ehAdmin(u)}
       pendencias={pend.map(itemPendencia)}
       personagem={personagem}
       aviso={

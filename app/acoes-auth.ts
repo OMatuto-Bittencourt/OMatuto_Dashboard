@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { apagarCookieSessao, bloqueado, gravarCookieSessao, limparFalhas, registrarFalha, usuarioAtual } from "@/lib/auth";
 import { executar } from "@/lib/db";
 import { conferirSenha, gerarHash, hashParaEmailInexistente, validarNovaSenha } from "@/lib/senha";
+import { registrarEvento } from "@/lib/usuarios";
 
 export type EstadoForm = { erro?: string; email?: string } | undefined;
 
@@ -62,6 +63,7 @@ export async function trocarSenha(_: EstadoForm, form: FormData): Promise<Estado
       returning id, versao_senha`,
     [u.id, await gerarHash(nova)],
   );
+  await registrarEvento(u.id, u.id, "senha_alterada", { primeiro_acesso: u.trocar_senha });
   await gravarCookieSessao(atualizado);
   redirect("/?senha=alterada");
 }

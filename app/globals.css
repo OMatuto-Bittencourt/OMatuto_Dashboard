@@ -259,4 +259,57 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 .tooltip b { font-variant-numeric: tabular-nums; }
 .error { padding: 24px; }
 
+/* ---------- Formulários antigos (usados pela tela /admin até ela migrar para components/ui) ---------- */
+.form { display: grid; gap: 18px; }
+.campo { display: grid; gap: 6px; }
+.campo label { font-size: 13px; color: var(--text-secondary); }
+.campo input {
+  font: inherit; font-size: 15px; width: 100%; padding: 11px 12px; border-radius: 8px;
+  border: 1px solid var(--campo-borda); background: var(--surface-1); color: var(--text-primary);
+  transition: border-color .15s, box-shadow .15s;
 }
+.campo input:focus { outline: none; border-color: var(--text-primary); box-shadow: 0 0 0 3px rgba(246, 171, 16, .35); }
+.dica { font-size: 12px; color: var(--text-muted); }
+.botao {
+  font: inherit; font-size: 15px; padding: 12px 16px; border-radius: 8px; border: 1px solid var(--marca-preto);
+  background: var(--marca-preto); color: #fff; cursor: pointer; transition: background .15s;
+}
+.botao:hover { background: #262624; }
+.botao:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(246, 171, 16, .5); }
+.botao:disabled { opacity: .6; cursor: progress; }
+.form-erro {
+  margin: 0; padding: 10px 12px; border-radius: 8px; font-size: 13px;
+  background: var(--crit-bg); color: var(--text-primary); border-left: 3px solid var(--critical);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .botao { background: #f0efec; color: #0b0b0b; border-color: #f0efec; }
+  :root:not([data-theme="light"]) .botao:hover { background: #fff; }
+}
+:root[data-theme="dark"] .botao { background: #f0efec; color: #0b0b0b; border-color: #f0efec; }
+
+/* ---------- Admin de usuarios ---------- */
+.admin-grid { grid-template-columns: minmax(280px, 1fr) minmax(0, 2.6fr); margin-bottom: 16px; align-items: start; }
+@media (max-width: 1000px) { .admin-grid { grid-template-columns: 1fr; } }
+.campo select {
+  font: inherit; font-size: 15px; width: 100%; padding: 10px 12px; border-radius: 8px;
+  border: 1px solid var(--campo-borda); background: var(--surface-1); color: var(--text-primary);
+}
+.campo select:focus { outline: none; border-color: var(--text-primary); box-shadow: 0 0 0 3px rgba(246, 171, 16, .35); }
+.form-ok { margin: 14px 0 0; font-size: 13px; color: var(--text-primary); border-left: 3px solid var(--good); padding: 6px 10px; }
+.senha-temp { margin-top: 12px; padding: 12px; border-radius: 8px; border: 1px dashed var(--marca-ambar); background: var(--surface-2); display: grid; gap: 6px; }
+.senha-temp-linha { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.senha-temp code { font-size: 17px; letter-spacing: .04em; padding: 4px 8px; background: var(--surface-1); border-radius: 6px; border: 1px solid var(--border); }
+.botao-sec { font: inherit; font-size: 13px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-1); color: var(--text-primary); cursor: pointer; }
+.botao-sec:hover { background: var(--surface-2); }
+.acoes-conta { display: grid; gap: 6px; min-width: 120px; }
+.acoes-botoes { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.link-acao { font: inherit; font-size: 13px; padding: 0; border: 0; background: none; color: var(--accent); cursor: pointer; white-space: nowrap; }
+.link-acao.perigo { color: var(--critical); }
+.link-acao:disabled { opacity: .5; cursor: progress; }
+tr.inativa td { color: var(--text-muted); }
+.historico { list-style: none; margin: 0; padding: 0; display: grid; }
+.historico li { display: grid; grid-template-columns: 130px 1fr; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+@media (max-width: 520px) { .historico li { grid-template-columns: 1fr; gap: 2px; } }
+
+} /* fim de @layer legacy */
